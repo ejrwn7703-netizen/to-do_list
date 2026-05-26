@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useWeb3 } from "../context/Web3Context";
+import { parseContractError } from "../utils/errors";
 
 export function useTodos() {
   const { contract, account } = useWeb3();
@@ -44,8 +45,7 @@ export function useTodos() {
         if (e.code === 4001 || e.code === "ACTION_REJECTED") {
           setTxState(null);
         } else {
-          const msg = e.reason ?? e.shortMessage ?? e.message;
-          setTxState((prev) => ({ ...prev, status: "error", message: msg }));
+          setTxState((prev) => ({ ...prev, status: "error", message: parseContractError(e) }));
         }
       }
     },
@@ -73,8 +73,7 @@ export function useTodos() {
         if (e.code === 4001 || e.code === "ACTION_REJECTED") {
           setTxState(null);
         } else {
-          const msg = e.reason ?? e.shortMessage ?? e.message;
-          setTxState((prev) => ({ ...prev, status: "error", message: msg }));
+          setTxState((prev) => ({ ...prev, status: "error", message: parseContractError(e) }));
         }
       }
     },
@@ -95,8 +94,7 @@ export function useTodos() {
         if (e.code === 4001 || e.code === "ACTION_REJECTED") {
           setTxState(null);
         } else {
-          const msg = e.reason ?? e.shortMessage ?? e.message;
-          setTxState((prev) => ({ ...prev, status: "error", message: msg }));
+          setTxState((prev) => ({ ...prev, status: "error", message: parseContractError(e) }));
         }
       }
     },
@@ -117,8 +115,7 @@ export function useTodos() {
         if (e.code === 4001 || e.code === "ACTION_REJECTED") {
           setTxState(null);
         } else {
-          const msg = e.reason ?? e.shortMessage ?? e.message;
-          setTxState((prev) => ({ ...prev, status: "error", message: msg }));
+          setTxState((prev) => ({ ...prev, status: "error", message: parseContractError(e) }));
         }
       }
     },
