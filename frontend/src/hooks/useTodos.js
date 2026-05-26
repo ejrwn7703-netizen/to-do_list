@@ -53,7 +53,90 @@ export function useTodos() {
     [contract, fetchTodos]
   );
 
+  const updateTodo = useCallback(
+    async (todoId, { title, description, categoryId, priority, deadline }) => {
+      if (!contract) return;
+      setTxState({ hash: null, status: "pending", action: "할 일 수정" });
+      try {
+        const tx = await contract.updateTodo(
+          BigInt(todoId),
+          title,
+          description,
+          BigInt(categoryId),
+          priority,
+          BigInt(deadline)
+        );
+        setTxState((prev) => ({ ...prev, hash: tx.hash }));
+        await tx.wait();
+        await fetchTodos();
+        setTxState((prev) => ({ ...prev, status: "success" }));
+      } catch (e) {
+        if (e.code === 4001 || e.code === "ACTION_REJECTED") {
+          setTxState(null);
+        } else {
+          const msg = e.reason ?? e.shortMessage ?? e.message;
+          setTxState((prev) => ({ ...prev, status: "error", message: msg }));
+        }
+      }
+    },
+    [contract, fetchTodos]
+  );
+
+  const deleteTodo = useCallback(
+    async (todoId) => {
+      if (!contract) return;
+      setTxState({ hash: null, status: "pending", action: "할 일 삭제" });
+      try {
+        const tx = await contract.deleteTodo(BigInt(todoId));
+        setTxState((prev) => ({ ...prev, hash: tx.hash }));
+        await tx.wait();
+        await fetchTodos();
+        setTxState((prev) => ({ ...prev, status: "success" }));
+      } catch (e) {
+        if (e.code === 4001 || e.code === "ACTION_REJECTED") {
+          setTxState(null);
+        } else {
+          const msg = e.reason ?? e.shortMessage ?? e.message;
+          setTxState((prev) => ({ ...prev, status: "error", message: msg }));
+        }
+      }
+    },
+    [contract, fetchTodos]
+  );
+
+  const toggleComplete = useCallback(
+    async (todoId) => {
+      if (!contract) return;
+      setTxState({ hash: null, status: "pending", action: "완료 상태 변경" });
+      try {
+        const tx = await contract.toggleComplete(BigInt(todoId));
+        setTxState((prev) => ({ ...prev, hash: tx.hash }));
+        await tx.wait();
+        await fetchTodos();
+        setTxState((prev) => ({ ...prev, status: "success" }));
+      } catch (e) {
+        if (e.code === 4001 || e.code === "ACTION_REJECTED") {
+          setTxState(null);
+        } else {
+          const msg = e.reason ?? e.shortMessage ?? e.message;
+          setTxState((prev) => ({ ...prev, status: "error", message: msg }));
+        }
+      }
+    },
+    [contract, fetchTodos]
+  );
+
   const clearTxState = useCallback(() => setTxState(null), []);
 
-  return { todos, loading, txState, clearTxState, addTodo, refresh: fetchTodos };
+  return {
+    todos,
+    loading,
+    txState,
+    clearTxState,
+    addTodo,
+    updateTodo,
+    deleteTodo,
+    toggleComplete,
+    refresh: fetchTodos,
+  };
 }

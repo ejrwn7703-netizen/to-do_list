@@ -9,6 +9,7 @@ import Header from "./components/layout/Header";
 import Sidebar from "./components/layout/Sidebar";
 import TodoList from "./components/todo/TodoList";
 import TodoForm from "./components/todo/TodoForm";
+import CategoryManager from "./components/category/CategoryManager";
 
 // SCR-01: 지갑 미연결 랜딩 화면
 function LandingScreen() {
@@ -74,38 +75,121 @@ function LandingScreen() {
   );
 }
 
-// SCR-03: 메인 — Todo 목록 화면 + SCR-04 추가 모달
-function MainScreen() {
-  const { todos, loading: todosLoading, txState, clearTxState, addTodo } = useTodos();
-  const { categories, loading: catsLoading } = useCategories();
+// SCR-06: Todo 삭제 확인 다이얼로그
+function DeleteConfirmDialog({ todo, onConfirm, onCancel }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <h2 className="text-lg font-bold text-gray-800">할 일 삭제 확인</h2>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+        >
+          ✕
+        </button>
+      </div>
+      <div className="px-6 py-6 text-center">
+        <div className="text-4xl mb-4">⚠</div>
+        <p className="font-semibold text-gray-800 mb-3">정말로 삭제하시겠습니까?</p>
+        <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-4 py-2 mb-4 font-medium">
+          "{todo.title}"
+        </p>
+        <p className="text-xs text-gray-400 mb-6">
+          삭제 후에도 블록체인 기록은 이력으로 영구 보존됩니다.
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 border border-gray-300 text-gray-600 font-medium py-2.5 rounded-xl hover:bg-gray-50 transition-colors"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+          >
+            삭제하기 🔗
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
+// SCR-03: 메인 — Todo 목록 화면
+function MainScreen() {
+  const {
+    todos,
+    loading: todosLoading,
+    txState: todoTxState,
+    clearTxState: clearTodoTxState,
+    addTodo,
+    updateTodo,
+    deleteTodo,
+    toggleComplete,
+  } = useTodos();
+
+  const {
+    categories,
+    loading: catsLoading,
+    txState: catTxState,
+    clearTxState: clearCatTxState,
+    addCategory,
+    deleteCategory,
+  } = useCategories();
+
+  // 모달 상태
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingTodo, setEditingTodo] = useState(null);   // null | Todo 객체
+  const [deletingTodo, setDeletingTodo] = useState(null); // null | Todo 객체
+  const [showCatModal, setShowCatModal] = useState(false);
+
+  // 카테고리 필터 상태
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
 
   const filteredTodos = selectedCategoryId
     ? todos.filter((t) => t.categoryId.toString() === selectedCategoryId)
     : todos;
 
+  const selectedCategoryName = selectedCategoryId
+    ? categories.find((c) => c.id.toString() === selectedCategoryId)?.name
+    : null;
+
+  // SCR-04: Todo 추가 제출
   const handleAddTodo = async (formData) => {
     setShowAddModal(false);
     await addTodo(formData);
   };
 
-  const selectedCategoryName = selectedCategoryId
-    ? categories.find((c) => c.id.toString() === selectedCategoryId)?.name
-    : null;
+  // SCR-05: Todo 편집 제출
+  const handleEditTodo = async (formData) => {
+    const todoId = editingTodo.id;
+    setEditingTodo(null);
+    await updateTodo(todoId, formData);
+  };
+
+  // SCR-06: Todo 삭제 확인
+  const handleDeleteConfirm = async () => {
+    const todoId = deletingTodo.id;
+    setDeletingTodo(null);
+    await deleteTodo(todoId);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
 
       <div className="flex flex-1 overflow-hidden" style={{ height: "calc(100vh - 65px)" }}>
-        {/* 사이드바 */}
+        {/* 사이드바 — 카테고리 필터 + 관리 버튼 */}
         <Sidebar
           categories={categories}
           todos={todos}
           selectedCategoryId={selectedCategoryId}
           onSelectCategory={setSelectedCategoryId}
+          onManageCategories={() => setShowCatModal(true)}
         />
 
         {/* 메인 영역 */}
@@ -118,7 +202,7 @@ function MainScreen() {
               onClick={() => setShowAddModal(true)}
               disabled={catsLoading || categories.length === 0}
               title={categories.length === 0 ? "먼저 카테고리를 추가하세요" : ""}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
             >
               + 새 할 일 추가
             </button>
@@ -128,6 +212,9 @@ function MainScreen() {
             todos={filteredTodos}
             categories={categories}
             loading={todosLoading}
+            onToggle={(id) => toggleComplete(id)}
+            onEdit={(todo) => setEditingTodo(todo)}
+            onDelete={(todo) => setDeletingTodo(todo)}
           />
 
           <p className="text-xs text-amber-600 text-center mt-8">
@@ -141,16 +228,28 @@ function MainScreen() {
         <Modal onClose={() => setShowAddModal(false)}>
           {categories.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="text-gray-500 mb-4">카테고리가 없습니다.</p>
-              <p className="text-sm text-gray-400 mb-4">
-                Phase 6에서 카테고리 추가 기능이 구현됩니다.
+              <div className="text-4xl mb-4">📁</div>
+              <p className="text-gray-600 font-semibold mb-2">카테고리가 없습니다.</p>
+              <p className="text-sm text-gray-400 mb-6">
+                할 일을 추가하려면 먼저 카테고리를 만들어야 합니다.
               </p>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="text-indigo-600 font-medium"
-              >
-                닫기
-              </button>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setShowCatModal(true);
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+                >
+                  카테고리 만들기
+                </button>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="text-gray-500 text-sm px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
             </div>
           ) : (
             <TodoForm
@@ -162,8 +261,48 @@ function MainScreen() {
         </Modal>
       )}
 
-      {/* SCR-08: 트랜잭션 진행 중 오버레이 */}
-      <TxPending txState={txState} onClose={clearTxState} />
+      {/* SCR-05: Todo 편집 모달 (기존 데이터 pre-fill) */}
+      {editingTodo && (
+        <Modal onClose={() => setEditingTodo(null)}>
+          <TodoForm
+            title="할 일 편집"
+            categories={categories}
+            initialData={editingTodo}
+            onSubmit={handleEditTodo}
+            onCancel={() => setEditingTodo(null)}
+          />
+        </Modal>
+      )}
+
+      {/* SCR-06: Todo 삭제 확인 모달 */}
+      {deletingTodo && (
+        <Modal onClose={() => setDeletingTodo(null)}>
+          <DeleteConfirmDialog
+            todo={deletingTodo}
+            onConfirm={handleDeleteConfirm}
+            onCancel={() => setDeletingTodo(null)}
+          />
+        </Modal>
+      )}
+
+      {/* SCR-07: 카테고리 관리 모달 */}
+      {showCatModal && (
+        <Modal onClose={() => setShowCatModal(false)}>
+          <CategoryManager
+            categories={categories}
+            todos={todos}
+            onAdd={addCategory}
+            onDelete={deleteCategory}
+            onClose={() => setShowCatModal(false)}
+          />
+        </Modal>
+      )}
+
+      {/* SCR-08: 트랜잭션 진행 중 오버레이 — Todo 작업 */}
+      <TxPending txState={todoTxState} onClose={clearTodoTxState} />
+
+      {/* SCR-08: 트랜잭션 진행 중 오버레이 — 카테고리 작업 */}
+      <TxPending txState={catTxState} onClose={clearCatTxState} />
     </div>
   );
 }
