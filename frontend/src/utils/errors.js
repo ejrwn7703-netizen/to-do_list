@@ -28,13 +28,32 @@ export function parseContractError(e) {
     return mapped ?? "트랜잭션 예측에 실패했습니다. 입력 내용을 확인해주세요.";
   }
 
-  // CALL_EXCEPTION (컨트랙트 revert)
-  const reason = e.reason ?? e.data?.message ?? e.shortMessage ?? e.message ?? "";
-  const mapped = matchRevert(reason);
-  if (mapped) return mapped;
+  // CALL_EXCEPTION — Sepolia RPC가 revert reason을 여러 경로로 반환하므로 모두 탐색
+  const candidates = [
+    e.reason,
+    e.revert?.args?.[0],
+    e.data?.message,
+    e.error?.reason,
+    e.error?.data?.message,
+    e.shortMessage,
+    e.message,
+  ];
+  for (const c of candidates) {
+    if (!c) continue;
+    const mapped = matchRevert(String(c));
+    if (mapped) return mapped;
+  }
 
-  // 알 수 없는 에러 — 원문에서 의미 있는 부분만 추출
-  const raw = e.shortMessage ?? e.message ?? "알 수 없는 오류가 발생했습니다.";
+  // revert reason 없는 일반 실패 (체인 revert, RPC 미전달)
+  const shortMsg = e.shortMessage ?? e.message ?? "";
+  if (
+    shortMsg.includes("execution reverted") ||
+    shortMsg.includes("transaction execution reverted")
+  ) {
+    return "트랜잭션이 실패했습니다. 잠시 후 다시 시도해주세요.";
+  }
+
+  const raw = shortMsg || "알 수 없는 오류가 발생했습니다.";
   if (raw.length > 120) return raw.slice(0, 120) + "…";
   return raw;
 }
