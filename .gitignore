@@ -1,0 +1,33 @@
+# ===========================
+# 의존성
+# ===========================
+node_modules/
+
+# ===========================
+# 환경 변수 (절대 커밋 금지)
+# ===========================
+.env
+.env.local
+.env.*.local
+
+# ===========================
+# Hardhat 빌드 산출물
+# ===========================
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+contracts/coverage/
+contracts/coverage.json
+
+# ===========================
+# Vite / React 빌드 산출물
+# ===========================
+frontend/dist/
+frontend/.vite/
+
+# ===========================
+# IDE / OS
+# ===========================
+.DS_Store
+Thumbs.db
+*.log
