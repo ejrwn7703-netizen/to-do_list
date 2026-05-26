@@ -12,8 +12,7 @@ export function useTodos() {
     setLoading(true);
     try {
       const raw = await contract.getTodos();
-      const sorted = [...raw].sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
-      setTodos(sorted);
+      setTodos([...raw]); // 정렬은 App.jsx에서 필터와 함께 처리
     } catch (e) {
       console.error("getTodos:", e);
     } finally {

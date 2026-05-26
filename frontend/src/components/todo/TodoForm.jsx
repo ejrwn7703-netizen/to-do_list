@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useWeb3 } from "../../context/Web3Context";
 
 const PRIORITY_OPTIONS = [
   { value: 0, label: "LOW" },
@@ -9,6 +10,8 @@ const PRIORITY_OPTIONS = [
 const todayStr = () => new Date().toISOString().split("T")[0];
 
 export default function TodoForm({ categories, onSubmit, onCancel, initialData, title: formTitle }) {
+  const { contract } = useWeb3();
+
   const [title, setTitle] = useState(initialData?.title ?? "");
   const [description, setDescription] = useState(initialData?.description ?? "");
   const [categoryId, setCategoryId] = useState(
@@ -22,12 +25,65 @@ export default function TodoForm({ categories, onSubmit, onCancel, initialData, 
   );
   const [errors, setErrors] = useState({});
 
+  // ─── 가스비 예상치 (Phase 7) ─────────────────────────────────────────────
+  const [gasEstimate, setGasEstimate] = useState(null);
+
   // 카테고리 목록이 늦게 로드될 때 초기값 설정
   useEffect(() => {
     if (!categoryId && categories.length > 0) {
       setCategoryId(categories[0].id.toString());
     }
   }, [categories, categoryId]);
+
+  // 폼이 유효할 때 800ms 디바운스 후 estimateGas 호출
+  // 과도한 RPC 호출 방지: 디바운스 + 유효성 통과 시에만 실행
+  useEffect(() => {
+    if (!contract || !title.trim() || !categoryId) {
+      setGasEstimate(null);
+      return;
+    }
+    const byteLen = (str) => new TextEncoder().encode(str).length;
+    if (byteLen(title) > 100 || byteLen(description) > 500) {
+      setGasEstimate(null);
+      return;
+    }
+
+    const deadlineTs = deadline
+      ? Math.floor(new Date(deadline + "T23:59:59").getTime() / 1000)
+      : 0;
+
+    const timer = setTimeout(async () => {
+      try {
+        let gas;
+        if (initialData) {
+          // 편집 모드: updateTodo estimateGas
+          gas = await contract.updateTodo.estimateGas(
+            BigInt(initialData.id),
+            title.trim(),
+            description.trim(),
+            BigInt(categoryId),
+            Number(priority),
+            BigInt(deadlineTs)
+          );
+        } else {
+          // 추가 모드: addTodo estimateGas
+          gas = await contract.addTodo.estimateGas(
+            title.trim(),
+            description.trim(),
+            BigInt(categoryId),
+            Number(priority),
+            BigInt(deadlineTs)
+          );
+        }
+        setGasEstimate(gas);
+      } catch {
+        // 네트워크 오류 또는 유효성 실패 시 조용히 무시
+        setGasEstimate(null);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [contract, title, description, categoryId, priority, deadline, initialData]);
 
   const byteLen = (str) => new TextEncoder().encode(str).length;
 
@@ -203,21 +259,29 @@ export default function TodoForm({ categories, onSubmit, onCancel, initialData, 
         </div>
       </div>
 
-      {/* 버튼 */}
-      <div className="flex gap-3 px-6 py-4 border-t border-gray-200">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="flex-1 border border-gray-300 text-gray-600 font-medium py-2.5 rounded-xl hover:bg-gray-50 transition-colors"
-        >
-          취소
-        </button>
-        <button
-          type="submit"
-          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
-        >
-          {formTitle === "할 일 편집" ? "저장하기 🔗" : "등록하기 🔗"}
-        </button>
+      {/* 버튼 + 가스비 예상치 */}
+      <div className="px-6 py-4 border-t border-gray-200">
+        {/* 가스비 예상치 표시 — 과도한 RPC 호출 방지를 위해 800ms 디바운스 후 표시 */}
+        {gasEstimate !== null && (
+          <p className="text-xs text-gray-400 text-right mb-2">
+            예상 가스: ~{Number(gasEstimate).toLocaleString()} gas
+          </p>
+        )}
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 border border-gray-300 text-gray-600 font-medium py-2.5 rounded-xl hover:bg-gray-50 transition-colors"
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
+          >
+            {formTitle === "할 일 편집" ? "저장하기 🔗" : "등록하기 🔗"}
+          </button>
+        </div>
       </div>
     </form>
   );

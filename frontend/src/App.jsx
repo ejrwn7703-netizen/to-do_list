@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useWallet } from "./hooks/useWallet";
 import { useTodos } from "./hooks/useTodos";
 import { useCategories } from "./hooks/useCategories";
@@ -8,6 +8,7 @@ import TxPending from "./components/common/TxPending";
 import Header from "./components/layout/Header";
 import Sidebar from "./components/layout/Sidebar";
 import TodoList from "./components/todo/TodoList";
+import TodoFilter from "./components/todo/TodoFilter";
 import TodoForm from "./components/todo/TodoForm";
 import CategoryManager from "./components/category/CategoryManager";
 
@@ -147,12 +148,54 @@ function MainScreen() {
   const [deletingTodo, setDeletingTodo] = useState(null); // null | Todo 객체
   const [showCatModal, setShowCatModal] = useState(false);
 
-  // 카테고리 필터 상태
-  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  // ─── 필터 & 정렬 상태 (Phase 7) ────────────────────────────────────────────
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null); // Sidebar + TodoFilter 공유
+  const [statusFilter, setStatusFilter] = useState("all");   // "all" | "active" | "completed"
+  const [priorityFilter, setPriorityFilter] = useState("all"); // "all" | "0" | "1" | "2"
+  const [sortBy, setSortBy] = useState("createdAt");           // "createdAt" | "deadline" | "priority"
 
-  const filteredTodos = selectedCategoryId
-    ? todos.filter((t) => t.categoryId.toString() === selectedCategoryId)
-    : todos;
+  // ─── 클라이언트 사이드 필터 + 정렬 ──────────────────────────────────────────
+  const filteredTodos = useMemo(() => {
+    let result = [...todos];
+
+    // 상태 필터
+    if (statusFilter === "active") result = result.filter((t) => !t.isCompleted);
+    if (statusFilter === "completed") result = result.filter((t) => t.isCompleted);
+
+    // 카테고리 필터 (Sidebar 클릭 또는 TodoFilter 드롭다운 — 동일 상태)
+    if (selectedCategoryId) {
+      result = result.filter((t) => t.categoryId.toString() === selectedCategoryId);
+    }
+
+    // 우선순위 필터
+    if (priorityFilter !== "all") {
+      result = result.filter((t) => Number(t.priority) === Number(priorityFilter));
+    }
+
+    // 정렬
+    result.sort((a, b) => {
+      if (sortBy === "createdAt") {
+        return Number(b.createdAt) - Number(a.createdAt); // 최신 생성 순
+      }
+      if (sortBy === "deadline") {
+        // 마감일 없는 항목은 맨 뒤로
+        if (a.deadline === 0n && b.deadline === 0n) return 0;
+        if (a.deadline === 0n) return 1;
+        if (b.deadline === 0n) return -1;
+        return Number(a.deadline) - Number(b.deadline); // 빠른 마감일 먼저
+      }
+      if (sortBy === "priority") {
+        return Number(b.priority) - Number(a.priority); // HIGH(2) → MEDIUM(1) → LOW(0)
+      }
+      return 0;
+    });
+
+    return result;
+  }, [todos, statusFilter, selectedCategoryId, priorityFilter, sortBy]);
+
+  // 필터가 하나라도 적용되었는지 (빈 상태 메시지 구분용)
+  const isFiltered =
+    statusFilter !== "all" || selectedCategoryId !== null || priorityFilter !== "all";
 
   const selectedCategoryName = selectedCategoryId
     ? categories.find((c) => c.id.toString() === selectedCategoryId)?.name
@@ -194,7 +237,8 @@ function MainScreen() {
 
         {/* 메인 영역 */}
         <main className="flex-1 p-6 overflow-y-auto">
-          <div className="flex items-center justify-between mb-6">
+          {/* 헤더 행: 제목 + 추가 버튼 */}
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-800">
               {selectedCategoryName ?? "전체 할 일"}
             </h2>
@@ -208,10 +252,25 @@ function MainScreen() {
             </button>
           </div>
 
+          {/* 필터 & 정렬 바 (SCR-03) */}
+          <TodoFilter
+            statusFilter={statusFilter}
+            categoryFilter={selectedCategoryId}
+            priorityFilter={priorityFilter}
+            sortBy={sortBy}
+            categories={categories}
+            onStatusChange={setStatusFilter}
+            onCategoryChange={setSelectedCategoryId}
+            onPriorityChange={setPriorityFilter}
+            onSortChange={setSortBy}
+          />
+
+          {/* Todo 목록 */}
           <TodoList
             todos={filteredTodos}
             categories={categories}
             loading={todosLoading}
+            isFiltered={isFiltered}
             onToggle={(id) => toggleComplete(id)}
             onEdit={(todo) => setEditingTodo(todo)}
             onDelete={(todo) => setDeletingTodo(todo)}

@@ -12,19 +12,23 @@ export default function TodoItem({ todo, categoryName, onToggle, onEdit, onDelet
       }`}
     >
       <div className="flex items-start gap-3">
-        {/* 체크박스 — Phase 6에서 toggleComplete 연결 */}
+        {/* 완료 토글 체크박스 */}
         <button
           onClick={() => onToggle?.(todo.id)}
-          className="mt-1 w-5 h-5 rounded border-2 border-gray-300 flex items-center justify-center shrink-0 hover:border-indigo-400 transition-colors"
-          aria-label="완료 토글"
+          className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+            todo.isCompleted
+              ? "bg-indigo-600 border-indigo-600"
+              : "border-gray-300 hover:border-indigo-400"
+          }`}
+          aria-label={todo.isCompleted ? "완료 취소" : "완료로 표시"}
         >
           {todo.isCompleted && (
-            <span className="text-indigo-600 text-xs font-bold">✓</span>
+            <span className="text-white text-xs font-bold leading-none">✓</span>
           )}
         </button>
 
         <div className="flex-1 min-w-0">
-          {/* 배지 row */}
+          {/* 우선순위 배지 + D-day 배지 */}
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span
               className={`text-xs font-bold px-2 py-0.5 rounded-full ${PRIORITY_COLOR[priority]}`}
@@ -35,10 +39,10 @@ export default function TodoItem({ todo, categoryName, onToggle, onEdit, onDelet
               <span
                 className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                   dday.startsWith("D+")
-                    ? "bg-red-100 text-red-600"
+                    ? "bg-red-100 text-red-600"   // 마감 지남
                     : dday === "D-day"
-                    ? "bg-orange-100 text-orange-600"
-                    : "bg-blue-100 text-blue-600"
+                    ? "bg-orange-100 text-orange-600"  // 오늘
+                    : "bg-blue-100 text-blue-600"      // 미래
                 }`}
               >
                 {dday}
@@ -46,7 +50,7 @@ export default function TodoItem({ todo, categoryName, onToggle, onEdit, onDelet
             )}
           </div>
 
-          {/* 제목 */}
+          {/* 제목 — 완료 시 취소선 */}
           <p
             className={`font-semibold text-gray-800 ${
               todo.isCompleted ? "line-through text-gray-400" : ""
@@ -55,7 +59,7 @@ export default function TodoItem({ todo, categoryName, onToggle, onEdit, onDelet
             {todo.title}
           </p>
 
-          {/* 메타 정보 */}
+          {/* 카테고리 + 마감일 */}
           <div className="flex gap-3 mt-1 text-xs text-gray-400">
             <span>📁 {categoryName}</span>
             {deadlineStr && <span>🗓 {deadlineStr}</span>}
@@ -67,7 +71,7 @@ export default function TodoItem({ todo, categoryName, onToggle, onEdit, onDelet
           )}
         </div>
 
-        {/* 액션 버튼 — Phase 6에서 연결 */}
+        {/* 편집 / 삭제 버튼 */}
         <div className="flex gap-1 shrink-0">
           <button
             onClick={() => onEdit?.(todo)}
