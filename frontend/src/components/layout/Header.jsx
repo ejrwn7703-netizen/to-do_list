@@ -1,9 +1,10 @@
 import { useWallet } from "../../hooks/useWallet";
 import { shortAddress } from "../../utils/format";
-import { SEPOLIA_CHAIN_ID } from "../../utils/constants";
+import { SEPOLIA_CHAIN_ID, ADMIN_ADDRESS } from "../../utils/constants";
 
-export default function Header() {
+export default function Header({ onAdminClick }) {
   const { isConnected, account, chainId, disconnectWallet } = useWallet();
+  const isAdmin = isConnected && account?.toLowerCase() === ADMIN_ADDRESS;
 
   const networkLabel =
     chainId === SEPOLIA_CHAIN_ID ? (
@@ -23,6 +24,14 @@ export default function Header() {
       {isConnected && (
         <div className="flex items-center gap-3">
           {networkLabel}
+          {isAdmin && (
+            <button
+              onClick={onAdminClick}
+              className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-full font-semibold transition-colors"
+            >
+              ADMIN
+            </button>
+          )}
           <span className="text-sm text-gray-600 font-mono bg-gray-100 px-3 py-1 rounded-full">
             {shortAddress(account)}
           </span>

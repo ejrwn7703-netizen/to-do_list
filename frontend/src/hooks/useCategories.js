@@ -67,6 +67,27 @@ export function useCategories() {
     [contract, fetchCategories]
   );
 
+  const renameCategory = useCallback(
+    async (categoryId, name) => {
+      if (!contract) return;
+      setTxState({ hash: null, status: "pending", action: "카테고리 이름 변경" });
+      try {
+        const tx = await contract.renameCategory(BigInt(categoryId), name);
+        setTxState((prev) => ({ ...prev, hash: tx.hash }));
+        await tx.wait();
+        await fetchCategories();
+        setTxState((prev) => ({ ...prev, status: "success" }));
+      } catch (e) {
+        if (e.code === 4001 || e.code === "ACTION_REJECTED") {
+          setTxState(null);
+        } else {
+          setTxState((prev) => ({ ...prev, status: "error", message: parseContractError(e) }));
+        }
+      }
+    },
+    [contract, fetchCategories]
+  );
+
   const clearTxState = useCallback(() => setTxState(null), []);
 
   return {
@@ -75,6 +96,7 @@ export function useCategories() {
     txState,
     clearTxState,
     addCategory,
+    renameCategory,
     deleteCategory,
     refresh: fetchCategories,
   };

@@ -69,6 +69,7 @@ contract TodoList {
     event TodoDeleted(address indexed owner, uint256 indexed todoId);
     event TodoCompleted(address indexed owner, uint256 indexed todoId, bool isCompleted);
     event CategoryAdded(address indexed owner, uint256 indexed categoryId);
+    event CategoryRenamed(address indexed owner, uint256 indexed categoryId, string newName);
     event CategoryDeleted(address indexed owner, uint256 indexed categoryId);
 
     // =========================================================
@@ -97,6 +98,21 @@ contract TodoList {
 
         emit CategoryAdded(msg.sender, newId);
         return newId;
+    }
+
+    /**
+     * @notice 카테고리 이름을 변경한다.
+     * @param categoryId 수정할 카테고리 ID
+     * @param name       새 이름 (1~50자)
+     */
+    function renameCategory(uint256 categoryId, string calldata name) external {
+        require(bytes(name).length > 0, "Category name cannot be empty");
+        require(bytes(name).length <= 50, "Category name too long");
+
+        uint256 idx = _getActiveCategoryIdx(msg.sender, categoryId);
+        _userCategories[msg.sender][idx].name = name;
+
+        emit CategoryRenamed(msg.sender, categoryId, name);
     }
 
     /**

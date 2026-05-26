@@ -1,8 +1,11 @@
 import { useState } from "react";
 
-export default function CategoryManager({ categories, todos, onAdd, onDelete, onClose }) {
+export default function CategoryManager({ categories, todos, onAdd, onRename, onDelete, onClose }) {
   const [newName, setNewName] = useState("");
   const [nameError, setNameError] = useState("");
+  const [editingId, setEditingId] = useState(null);   // 현재 이름 수정 중인 카테고리 ID
+  const [editingName, setEditingName] = useState(""); // 수정 중인 이름 값
+  const [editError, setEditError] = useState("");
 
   // categoryId → 활성 Todo 개수
   const countByCategory = {};
@@ -25,13 +28,40 @@ export default function CategoryManager({ categories, todos, onAdd, onDelete, on
     const name = newName.trim();
     setNewName("");
     setNameError("");
-    // 모달을 닫지 않고 트랜잭션 시작 → TxPending(z-50)이 모달(z-40) 위에 오버레이됨
-    // 트랜잭션 완료 후 TxPending 닫으면 카테고리 모달이 갱신된 목록으로 다시 보임
     await onAdd(name);
   };
 
+  const startEdit = (cat) => {
+    setEditingId(cat.id.toString());
+    setEditingName(cat.name);
+    setEditError("");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingName("");
+    setEditError("");
+  };
+
+  const handleRename = async (cat) => {
+    const trimmed = editingName.trim();
+    if (!trimmed) {
+      setEditError("이름을 입력하세요.");
+      return;
+    }
+    if (byteLen(trimmed) > 50) {
+      setEditError("카테고리 이름이 너무 깁니다 (최대 50바이트).");
+      return;
+    }
+    if (trimmed === cat.name) {
+      cancelEdit();
+      return;
+    }
+    cancelEdit();
+    await onRename(cat.id, trimmed);
+  };
+
   const handleDelete = async (cat) => {
-    // 모달을 닫지 않고 트랜잭션 시작 (SCR-08 → SCR-07 플로우)
     await onDelete(cat.id);
   };
 
@@ -96,25 +126,75 @@ export default function CategoryManager({ categories, todos, onAdd, onDelete, on
             <div className="space-y-2">
               {categories.map((cat) => {
                 const count = countByCategory[cat.id.toString()] ?? 0;
+                const isEditing = editingId === cat.id.toString();
+
                 return (
-                  <div
-                    key={cat.id.toString()}
-                    className="flex items-center justify-between py-2.5 px-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span>📁</span>
-                      <span className="text-sm font-medium text-gray-800 truncate">
-                        {cat.name}
-                      </span>
-                      <span className="text-xs text-gray-400 shrink-0">({count}개)</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(cat)}
-                      className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors shrink-0 ml-2"
-                    >
-                      삭제 🔗
-                    </button>
+                  <div key={cat.id.toString()} className="bg-gray-50 rounded-lg overflow-hidden">
+                    {isEditing ? (
+                      /* 이름 수정 모드 */
+                      <div className="px-3 py-2.5 space-y-2">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editingName}
+                            autoFocus
+                            onChange={(e) => {
+                              setEditingName(e.target.value);
+                              setEditError("");
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleRename(cat);
+                              if (e.key === "Escape") cancelEdit();
+                            }}
+                            className={`flex-1 border rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white ${
+                              editError ? "border-red-400" : "border-indigo-300"
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRename(cat)}
+                            className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md font-semibold transition-colors whitespace-nowrap"
+                          >
+                            저장 🔗
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEdit}
+                            className="text-xs text-gray-500 hover:text-gray-700 px-2.5 py-1.5 rounded-md border border-gray-300 hover:bg-gray-100 transition-colors"
+                          >
+                            취소
+                          </button>
+                        </div>
+                        {editError && <p className="text-xs text-red-500">{editError}</p>}
+                      </div>
+                    ) : (
+                      /* 기본 표시 모드 */
+                      <div className="flex items-center justify-between py-2.5 px-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span>📁</span>
+                          <span className="text-sm font-medium text-gray-800 truncate">
+                            {cat.name}
+                          </span>
+                          <span className="text-xs text-gray-400 shrink-0">({count}개)</span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(cat)}
+                            className="text-xs text-indigo-500 hover:text-indigo-700 px-2 py-1 rounded hover:bg-indigo-50 transition-colors"
+                          >
+                            수정
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(cat)}
+                            className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                          >
+                            삭제 🔗
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

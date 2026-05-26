@@ -11,6 +11,7 @@ import TodoList from "./components/todo/TodoList";
 import TodoFilter from "./components/todo/TodoFilter";
 import TodoForm from "./components/todo/TodoForm";
 import CategoryManager from "./components/category/CategoryManager";
+import AdminPanel from "./components/admin/AdminPanel";
 
 // SCR-01: 지갑 미연결 랜딩 화면
 function LandingScreen() {
@@ -122,6 +123,7 @@ function DeleteConfirmDialog({ todo, onConfirm, onCancel }) {
 
 // SCR-03: 메인 — Todo 목록 화면
 function MainScreen() {
+  const { account } = useWallet();
   const {
     todos,
     loading: todosLoading,
@@ -139,6 +141,7 @@ function MainScreen() {
     txState: catTxState,
     clearTxState: clearCatTxState,
     addCategory,
+    renameCategory,
     deleteCategory,
   } = useCategories();
 
@@ -147,6 +150,7 @@ function MainScreen() {
   const [editingTodo, setEditingTodo] = useState(null);   // null | Todo 객체
   const [deletingTodo, setDeletingTodo] = useState(null); // null | Todo 객체
   const [showCatModal, setShowCatModal] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   // ─── 필터 & 정렬 상태 (Phase 7) ────────────────────────────────────────────
   const [selectedCategoryId, setSelectedCategoryId] = useState(null); // Sidebar + TodoFilter 공유
@@ -223,7 +227,7 @@ function MainScreen() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header />
+      <Header onAdminClick={() => setShowAdminPanel(true)} />
 
       <div className="flex flex-1 overflow-hidden" style={{ height: "calc(100vh - 65px)" }}>
         {/* 사이드바 — 카테고리 필터 + 관리 버튼 */}
@@ -351,6 +355,7 @@ function MainScreen() {
             categories={categories}
             todos={todos}
             onAdd={addCategory}
+            onRename={renameCategory}
             onDelete={deleteCategory}
             onClose={() => setShowCatModal(false)}
           />
@@ -362,6 +367,18 @@ function MainScreen() {
 
       {/* SCR-08: 트랜잭션 진행 중 오버레이 — 카테고리 작업 */}
       <TxPending txState={catTxState} onClose={clearCatTxState} />
+
+      {/* 관리자 패널 모달 */}
+      {showAdminPanel && (
+        <Modal onClose={() => setShowAdminPanel(false)}>
+          <AdminPanel
+            onClose={() => setShowAdminPanel(false)}
+            todos={todos}
+            categories={categories}
+            account={account}
+          />
+        </Modal>
+      )}
     </div>
   );
 }
